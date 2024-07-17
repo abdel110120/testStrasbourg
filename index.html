@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interventions Map</title>
+    <link rel="stylesheet" href="leaflet.css" />
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([48.5734, 7.7521], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        fetch('/api/interventions')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(intervention => {
+                    const marker = L.marker([intervention.location.lat, intervention.location.lng]).addTo(map);
+                    marker.bindPopup(`<b>${intervention.type}</b><br>${intervention.details}<br>Status: ${intervention.status}<br>Date: ${new Date(intervention.date).toLocaleString()}`).openPopup();
+                    marker.on('click', () => {
+                        const newStatus = prompt('Enter new status:', intervention.status);
+                        if (newStatus) {
+                            fetch(`/api/interventions/${intervention._id}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({ status: newStatus })
+                            })
+                                .then(response => response.json())
+                                .then(updatedIntervention => {
+                                    marker.getPopup().setContent(`<b>${updatedIntervention.type}</b><br>${updatedIntervention.details}<br>Status: ${updatedIntervention.status}<br>Date: ${new Date(updatedIntervention.date).toLocaleString()}`).openPopup();
+                                });
+                        }
+                    });
+                });
+            });
+
+        map.on('click', e => {
+            const type = prompt('Enter type:');
+            const details = prompt('Enter details:');
+            const status = prompt('Enter status:');
+            if (type && details && status) {
+                const newIntervention = {
+                    type,
+                    details,
+                    status,
+                    date: new Date(),
+                    location: {
+                        lat: e.latlng.lat,
+                        lng: e.latlng.lng
+                    }
+                };
+                fetch('/api/interventions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(newIntervention)
+                })
+                    .then(response => response.json())
+                    .then(intervention => {
+                        const marker = L.marker([intervention.location.lat, intervention.location.lng]).addTo(map);
+                        marker.bindPopup(`<b>${intervention.type}</b><br>${intervention.details}<br>Status: ${intervention.status}<br>Date: ${new Date(intervention.date).toLocaleString()}`).openPopup();
+                    });
+            }
+        });
+    </script>
+</body>
+</html>
